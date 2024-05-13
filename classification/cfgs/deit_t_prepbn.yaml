@@ -1,0 +1,7 @@
+DATA:
+  IMG_SIZE: 224
+MODEL:
+  TYPE: deits # model file name
+  NAME: deit_tiny_patch16_224_repbn # model save dir name
+  DROP_PATH_RATE: 0.0
+  DROP_RATE: 0.0
