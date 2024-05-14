@@ -21,15 +21,15 @@ optimizer = dict(_delete_=True, type='AdamW', lr=0.0001, weight_decay=0.05)
 optimizer_config = dict(grad_clip=None)
 
 
-runner = dict(type='EpochBasedRunnerAMP', max_epochs=12)
+# runner = dict(type='EpochBasedRunnerAmp', max_epochs=12)
 
-# do not use mmdet version fp16
-fp16 = None
-optimizer_config = dict(
-    type="DistOptimizerHook",
-    update_interval=1,
-    grad_clip=None,
-    coalesce=True,
-    bucket_size_mb=-1,
-    use_fp16=True,
-)
+# # do not use mmdet version fp16
+# fp16 = None
+# optimizer_config = dict(
+#     type="DistOptimizerHook",
+#     update_interval=1,
+#     grad_clip=None,
+#     coalesce=True,
+#     bucket_size_mb=-1,
+#     use_fp16=True,
+# )

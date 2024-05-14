@@ -17,12 +17,13 @@ from mmcv_custom import load_checkpoint
 from mmdet.utils import get_root_logger
 from mmdet.models.builder import BACKBONES
 
-from einops import rearrange
 from .prepbn import RepBN, LinearNorm
 linearnorm = partial(LinearNorm, norm1=nn.LayerNorm, norm2=RepBN)
 
 
 class Mlp(nn.Module):
+    """ Multilayer perceptron."""
+
     def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0.):
         super().__init__()
         out_features = out_features or in_features
@@ -74,7 +75,7 @@ def window_reverse(windows, window_size, H, W):
 
 
 class WindowAttention(nn.Module):
-    r""" Window based multi-head self attention (W-MSA) module with relative position bias.
+    """ Window based multi-head self attention (W-MSA) module with relative position bias.
     It supports both of shifted and non-shifted window.
 
     Args:
@@ -105,8 +106,7 @@ class WindowAttention(nn.Module):
         coords_w = torch.arange(self.window_size[1])
         coords = torch.stack(torch.meshgrid([coords_h, coords_w]))  # 2, Wh, Ww
         coords_flatten = torch.flatten(coords, 1)  # 2, Wh*Ww
-        # relative_coords = coords_flatten[:, :, None] - coords_flatten[:, None, :]  # 2, Wh*Ww, Wh*Ww
-        relative_coords = coords_flatten.unsqueeze(-1) - coords_flatten.unsqueeze(-2)
+        relative_coords = coords_flatten[:, :, None] - coords_flatten[:, None, :]  # 2, Wh*Ww, Wh*Ww
         relative_coords = relative_coords.permute(1, 2, 0).contiguous()  # Wh*Ww, Wh*Ww, 2
         relative_coords[:, :, 0] += self.window_size[0] - 1  # shift to start from 0
         relative_coords[:, :, 1] += self.window_size[1] - 1
@@ -123,7 +123,8 @@ class WindowAttention(nn.Module):
         self.softmax = nn.Softmax(dim=-1)
 
     def forward(self, x, mask=None):
-        """
+        """ Forward function.
+
         Args:
             x: input features with shape of (num_windows*B, N, C)
             mask: (0/-inf) mask with shape of (num_windows, Wh*Ww, Wh*Ww) or None
@@ -156,184 +157,11 @@ class WindowAttention(nn.Module):
         return x
 
 
-class SlabLinearAttention(nn.Module):
-    r""" Window based multi-head self attention (W-MSA) module with relative position bias.
-    It supports both of shifted and non-shifted window.
-
-    Args:
-        dim (int): Number of input channels.
-        window_size (tuple[int]): The height and width of the window.
-        num_heads (int): Number of attention heads.
-        qkv_bias (bool, optional):  If True, add a learnable bias to query, key, value. Default: True
-        qk_scale (float | None, optional): Override default qk scale of head_dim ** -0.5 if set
-        attn_drop (float, optional): Dropout ratio of attention weight. Default: 0.0
-        proj_drop (float, optional): Dropout ratio of output. Default: 0.0
-    """
-
-    def __init__(self, dim, window_size, num_heads, qkv_bias=True, qk_scale=None, attn_drop=0., proj_drop=0.,
-                 focusing_factor=3, kernel_size=5):
-
-        super().__init__()
-        self.dim = dim
-        self.window_size = window_size  # Wh, Ww
-        self.num_heads = num_heads
-        head_dim = dim // num_heads
-
-        self.focusing_factor = focusing_factor
-        self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
-        self.attn_drop = nn.Dropout(attn_drop)
-        self.proj = nn.Linear(dim, dim)
-        self.proj_drop = nn.Dropout(proj_drop)
-
-        self.softmax = nn.Softmax(dim=-1)
-
-        self.dwc = nn.Conv2d(in_channels=head_dim, out_channels=head_dim, kernel_size=kernel_size,
-                             groups=head_dim, padding=kernel_size // 2)
-        self.positional_encoding = nn.Parameter(torch.zeros(size=(1, window_size[0] * window_size[1], dim)))
-
-        print('Linear Attention window{} f{} kernel{}'.
-              format(window_size, focusing_factor, kernel_size))
-
-    def forward(self, x, mask=None):
-        """
-        Args:
-            x: input features with shape of (num_windows*B, N, C)
-            mask: (0/-inf) mask with shape of (num_windows, Wh*Ww, Wh*Ww) or None
-        """
-        B, N, C = x.shape
-        qkv = self.qkv(x).reshape(B, N, 3, C).permute(2, 0, 1, 3)
-        q, k, v = qkv.unbind(0)
-        k = k + self.positional_encoding
-
-        kernel_function = nn.ReLU()
-        q = kernel_function(q)
-        k = kernel_function(k)
-
-        q, k, v = (rearrange(x, "b n (h c) -> (b h) n c", h=self.num_heads) for x in [q, k, v])
-        i, j, c, d = q.shape[-2], k.shape[-2], k.shape[-1], v.shape[-1]
-
-        with torch.cuda.amp.autocast(enabled=False):
-            q = q.to(torch.float32)
-            k = k.to(torch.float32)
-            v = v.to(torch.float32)
-
-            z = 1 / (torch.einsum("b i c, b c -> b i", q, k.sum(dim=1)) + 1e-6)
-            if i * j * (c + d) > c * d * (i + j):
-                kv = torch.einsum("b j c, b j d -> b c d", k, v)
-                x = torch.einsum("b i c, b c d, b i -> b i d", q, kv, z)
-            else:
-                qk = torch.einsum("b i c, b j c -> b i j", q, k)
-                x = torch.einsum("b i j, b j d, b i -> b i d", qk, v, z)
-
-        num = int(v.shape[1] ** 0.5)
-        feature_map = rearrange(v, "b (w h) c -> b c w h", w=num, h=num)
-        feature_map = rearrange(self.dwc(feature_map), "b c w h -> b (w h) c")
-        x = x + feature_map
-
-        x = rearrange(x, "(b h) n c -> b n (h c)", h=self.num_heads)
-        x = self.proj(x)
-        x = self.proj_drop(x)
-        return x
-
-
-# class FocusedLinearAttention(nn.Module):
-#     r""" Window based multi-head self attention (W-MSA) module with relative position bias.
-#     It supports both of shifted and non-shifted window.
-#
-#     Args:
-#         dim (int): Number of input channels.
-#         window_size (tuple[int]): The height and width of the window.
-#         num_heads (int): Number of attention heads.
-#         qkv_bias (bool, optional):  If True, add a learnable bias to query, key, value. Default: True
-#         qk_scale (float | None, optional): Override default qk scale of head_dim ** -0.5 if set
-#         attn_drop (float, optional): Dropout ratio of attention weight. Default: 0.0
-#         proj_drop (float, optional): Dropout ratio of output. Default: 0.0
-#     """
-#
-#     def __init__(self, dim, window_size, num_heads, qkv_bias=True, qk_scale=None, attn_drop=0., proj_drop=0.,
-#                  focusing_factor=3, kernel_size=5):
-#
-#         super().__init__()
-#         self.dim = dim
-#         self.window_size = window_size  # Wh, Ww
-#         self.num_heads = num_heads
-#         head_dim = dim // num_heads
-#
-#         self.focusing_factor = focusing_factor
-#         self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
-#         self.attn_drop = nn.Dropout(attn_drop)
-#         self.proj = nn.Linear(dim, dim)
-#         self.proj_drop = nn.Dropout(proj_drop)
-#
-#         self.softmax = nn.Softmax(dim=-1)
-#
-#         self.dwc = nn.Conv2d(in_channels=head_dim, out_channels=head_dim, kernel_size=kernel_size,
-#                              groups=head_dim, padding=kernel_size // 2)
-#         self.scale = nn.Parameter(torch.zeros(size=(1, 1, dim)))
-#         self.positional_encoding = nn.Parameter(torch.zeros(size=(1, window_size[0] * window_size[1], dim)))
-#         print('Linear Attention window{} f{} kernel{}'.
-#               format(window_size, focusing_factor, kernel_size))
-#
-#     def forward(self, x, mask=None):
-#         """
-#         Args:
-#             x: input features with shape of (num_windows*B, N, C)
-#             mask: (0/-inf) mask with shape of (num_windows, Wh*Ww, Wh*Ww) or None
-#         """
-#         B, N, C = x.shape
-#         qkv = self.qkv(x).reshape(B, N, 3, C).permute(2, 0, 1, 3)
-#         q, k, v = qkv.unbind(0)
-#         k = k + self.positional_encoding
-#         focusing_factor = self.focusing_factor
-#         kernel_function = nn.ReLU()
-#         q = kernel_function(q) + 1e-6
-#         k = kernel_function(k) + 1e-6
-#         scale = nn.Softplus()(self.scale)
-#         q = q / scale
-#         k = k / scale
-#         q_norm = q.norm(dim=-1, keepdim=True)
-#         k_norm = k.norm(dim=-1, keepdim=True)
-#         if float(focusing_factor) <= 6:
-#             q = q ** focusing_factor
-#             k = k ** focusing_factor
-#         else:
-#             q = (q / q.max(dim=-1, keepdim=True)[0]) ** focusing_factor
-#             k = (k / k.max(dim=-1, keepdim=True)[0]) ** focusing_factor
-#         q = (q / q.norm(dim=-1, keepdim=True)) * q_norm
-#         k = (k / k.norm(dim=-1, keepdim=True)) * k_norm
-#         q, k, v = (rearrange(x, "b n (h c) -> (b h) n c", h=self.num_heads) for x in [q, k, v])
-#         i, j, c, d = q.shape[-2], k.shape[-2], k.shape[-1], v.shape[-1]
-#
-#         # with torch.cuda.amp.autocast(enabled=False):
-#         #     q = q.to(torch.float32)
-#         #     k = k.to(torch.float32)
-#         #     v = v.to(torch.float32)
-#
-#         z = 1 / (torch.einsum("b i c, b c -> b i", q, k.sum(dim=1)) + 1e-6)
-#         if i * j * (c + d) > c * d * (i + j):
-#             kv = torch.einsum("b j c, b j d -> b c d", k, v)
-#             x = torch.einsum("b i c, b c d, b i -> b i d", q, kv, z)
-#         else:
-#             qk = torch.einsum("b i c, b j c -> b i j", q, k)
-#             x = torch.einsum("b i j, b j d, b i -> b i d", qk, v, z)
-#
-#         num = int(v.shape[1] ** 0.5)
-#         feature_map = rearrange(v, "b (w h) c -> b c w h", w=num, h=num)
-#         feature_map = rearrange(self.dwc(feature_map), "b c w h -> b (w h) c")
-#         x = x + feature_map
-#
-#         x = rearrange(x, "(b h) n c -> b n (h c)", h=self.num_heads)
-#         x = self.proj(x)
-#         x = self.proj_drop(x)
-#         return x
-
-
 class SwinTransformerBlock(nn.Module):
-    r""" Swin Transformer Block.
+    """ Swin Transformer Block.
 
     Args:
         dim (int): Number of input channels.
-        input_resolution (tuple[int]): Input resulotion.
         num_heads (int): Number of attention heads.
         window_size (int): Window size.
         shift_size (int): Shift size for SW-MSA.
@@ -349,28 +177,19 @@ class SwinTransformerBlock(nn.Module):
 
     def __init__(self, dim, num_heads, window_size=7, shift_size=0,
                  mlp_ratio=4., qkv_bias=True, qk_scale=None, drop=0., attn_drop=0., drop_path=0.,
-                 act_layer=nn.GELU, norm_layer=nn.LayerNorm,
-                 focusing_factor=3, kernel_size=5, attn_type='L'):
+                 act_layer=nn.GELU, norm_layer=nn.LayerNorm):
         super().__init__()
         self.dim = dim
         self.num_heads = num_heads
         self.window_size = window_size
         self.shift_size = shift_size
         self.mlp_ratio = mlp_ratio
-        self.attn_type = attn_type
         assert 0 <= self.shift_size < self.window_size, "shift_size must in 0-window_size"
 
         self.norm1 = norm_layer(dim)
-        assert attn_type in ['L', 'S']
-        if attn_type == 'L':
-            self.attn = SlabLinearAttention(
-                dim, window_size=to_2tuple(self.window_size), num_heads=num_heads,
-                qkv_bias=qkv_bias, qk_scale=qk_scale, attn_drop=attn_drop, proj_drop=drop,
-                focusing_factor=focusing_factor, kernel_size=kernel_size)
-        else:
-            self.attn = WindowAttention(
-                dim, window_size=to_2tuple(self.window_size), num_heads=num_heads,
-                qkv_bias=qkv_bias, qk_scale=qk_scale, attn_drop=attn_drop, proj_drop=drop)
+        self.attn = WindowAttention(
+            dim, window_size=to_2tuple(self.window_size), num_heads=num_heads,
+            qkv_bias=qkv_bias, qk_scale=qk_scale, attn_drop=attn_drop, proj_drop=drop)
 
         self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
         self.norm2 = norm_layer(dim)
@@ -381,8 +200,15 @@ class SwinTransformerBlock(nn.Module):
         self.W = None
 
     def forward(self, x, mask_matrix):
-        H, W = self.H, self.W
+        """ Forward function.
+
+        Args:
+            x: Input feature, tensor size (B, H*W, C).
+            H, W: Spatial resolution of the input feature.
+            mask_matrix: Attention mask for cyclic shift.
+        """
         B, L, C = x.shape
+        H, W = self.H, self.W
         assert L == H * W, "input feature has wrong size"
 
         shortcut = x
@@ -428,7 +254,6 @@ class SwinTransformerBlock(nn.Module):
 
         # FFN
         x = shortcut + self.drop_path(x)
-
         x = x + self.drop_path(self.mlp(self.norm2(x)))
 
         return x
@@ -509,10 +334,7 @@ class BasicLayer(nn.Module):
                  drop_path=0.,
                  norm_layer=nn.LayerNorm,
                  downsample=None,
-                 use_checkpoint=False,
-                 focusing_factor=3,
-                 kernel_size=5,
-                 attn_type='L'):
+                 use_checkpoint=False):
         super().__init__()
         self.window_size = window_size
         self.shift_size = window_size // 2
@@ -520,20 +342,19 @@ class BasicLayer(nn.Module):
         self.use_checkpoint = use_checkpoint
 
         # build blocks
-        attn_types = [(attn_type if attn_type[0] != 'M' else ('L' if i < int(attn_type[1:]) else 'S')) for i in
-                      range(depth)]
         self.blocks = nn.ModuleList([
-            SwinTransformerBlock(dim=dim,
-                                 num_heads=num_heads, window_size=window_size,
-                                 shift_size=0 if (i % 2 == 0) else window_size // 2,
-                                 mlp_ratio=mlp_ratio,
-                                 qkv_bias=qkv_bias, qk_scale=qk_scale,
-                                 drop=drop, attn_drop=attn_drop,
-                                 drop_path=drop_path[i] if isinstance(drop_path, list) else drop_path,
-                                 norm_layer=norm_layer,
-                                 focusing_factor=focusing_factor,
-                                 kernel_size=kernel_size,
-                                 attn_type=attn_types[i])
+            SwinTransformerBlock(
+                dim=dim,
+                num_heads=num_heads,
+                window_size=window_size,
+                shift_size=0 if (i % 2 == 0) else window_size // 2,
+                mlp_ratio=mlp_ratio,
+                qkv_bias=qkv_bias,
+                qk_scale=qk_scale,
+                drop=drop,
+                attn_drop=attn_drop,
+                drop_path=drop_path[i] if isinstance(drop_path, list) else drop_path,
+                norm_layer=norm_layer)
             for i in range(depth)])
 
         # patch merging layer
@@ -629,7 +450,7 @@ class PatchEmbed(nn.Module):
 
 
 @BACKBONES.register_module()
-class SwinTransformer_SLAB(nn.Module):
+class SwinTransformer_PRepBN(nn.Module):
     """ Swin Transformer backbone.
         A PyTorch impl of : `Swin Transformer: Hierarchical Vision Transformer using Shifted Windows`  -
           https://arxiv.org/pdf/2103.14030
@@ -677,8 +498,7 @@ class SwinTransformer_SLAB(nn.Module):
                  patch_norm=True,
                  out_indices=(0, 1, 2, 3),
                  frozen_stages=-1,
-                 use_checkpoint=False,
-                 focusing_factor=3, kernel_size=5, attn_type='LLSS', **kwargs):
+                 use_checkpoint=False):
         super().__init__()
 
         self.pretrain_img_size = pretrain_img_size
@@ -710,13 +530,12 @@ class SwinTransformer_SLAB(nn.Module):
 
         # build layers
         self.layers = nn.ModuleList()
-        window_size = [56, 28, window_size, window_size]
         for i_layer in range(self.num_layers):
             layer = BasicLayer(
                 dim=int(embed_dim * 2 ** i_layer),
                 depth=depths[i_layer],
                 num_heads=num_heads[i_layer],
-                window_size=window_size[i_layer],
+                window_size=window_size,
                 mlp_ratio=mlp_ratio,
                 qkv_bias=qkv_bias,
                 qk_scale=qk_scale,
@@ -725,11 +544,7 @@ class SwinTransformer_SLAB(nn.Module):
                 drop_path=dpr[sum(depths[:i_layer]):sum(depths[:i_layer + 1])],
                 norm_layer=norm_layer,
                 downsample=partial(PatchMerging, norm_layer=norm_layer) if (i_layer < self.num_layers - 1) else None,
-                use_checkpoint=use_checkpoint,
-                focusing_factor=focusing_factor,
-                kernel_size=kernel_size,
-                attn_type=attn_type[i_layer] + (attn_type[self.num_layers:] if attn_type[i_layer] == 'M' else '')
-            )
+                use_checkpoint=use_checkpoint)
             self.layers.append(layer)
 
         num_features = [int(embed_dim * 2 ** i) for i in range(self.num_layers)]
@@ -819,6 +634,5 @@ class SwinTransformer_SLAB(nn.Module):
 
     def train(self, mode=True):
         """Convert the model into training mode while keep layers freezed."""
-        super(SwinTransformer_linear, self).train(mode)
+        super(SwinTransformer_PRepBN, self).train(mode)
         self._freeze_stages()
-

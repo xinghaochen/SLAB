@@ -6,7 +6,7 @@ _base_ = [
 
 model = dict(
     backbone=dict(
-        type='SwinTransformer_linear',
+        type='SwinTransformer_SLAB',
         embed_dim=96,
         depths=[2, 2, 18, 2],
         num_heads=[3, 6, 12, 24],
