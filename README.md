@@ -89,18 +89,18 @@ python -m torch.distributed.launch --nproc_per_node=1 eval.py --cfg cfgs/swin_t_
 
 | Model | Top1 | config | checkpoints |
 | :---: | :---: | :---: | :---: | 
-|deit_t_prepbn|73.6%|deit_t_prepbn.yaml|https://github.com/xinghaochen/SLAB/releases/download/ckpts/deit_tiny_prepbn.pth|
-|deit_s_prepbn|80.2%|deit_s_prepbn.yaml|https://github.com/xinghaochen/SLAB/releases/download/ckpts/deit_small_prepbn.pth|
-|slab_deit_t|74.3%|slab_deit_t.yaml|https://github.com/xinghaochen/SLAB/releases/download/ckpts/slab_deit_tiny.pth|
-|slab_deit_s|80.0%|slab_deit_s.yaml|https://github.com/xinghaochen/SLAB/releases/download/ckpts/slab_deit_small.pth|
-|pvt_t_prepbn|76.0%|pvt_t_prepbn.yaml|https://github.com/xinghaochen/SLAB/releases/download/ckpts/pvt_tiny_prepbn.pth|
-|pvt_s_prepbn|80.1%|pvt_s_prepbn.yaml|https://github.com/xinghaochen/SLAB/releases/download/ckpts/pvt_small_prepbn.pth|
-|pvt_m_prepbn|81.7%|pvt_m_prepbn.yaml|https://github.com/xinghaochen/SLAB/releases/download/ckpts/pvt_medium_prepbn.pth|
-|slab_pvt_t|76.5%|slab_pvt_t.yaml|https://github.com/xinghaochen/SLAB/releases/download/ckpts/slab_pvt_tiny.pth|
-|swin_t_prepbn|81.4%|swin_t_prepbn.yaml|https://github.com/xinghaochen/SLAB/releases/download/ckpts/swin_tiny_prepbn.pth|
-|slab_swin_t|81.8%|slab_swin_t.yaml|https://github.com/xinghaochen/SLAB/releases/download/ckpts/slab_swin_tiny.pth|
-|slab_swin_s|83.6%|slab_swin_s.yaml|https://github.com/xinghaochen/SLAB/releases/download/ckpts/slab_swin_small.pth|
-|slab_cswin_t|82.8%|slab_cswin_t.yaml|https://github.com/xinghaochen/SLAB/releases/download/ckpts/slab_cswin_tiny.pth|
+|deit_t_prepbn|73.6%|deit_t_prepbn.yaml|[deit_tiny_prepbn.pth](https://github.com/xinghaochen/SLAB/releases/download/ckpts/deit_tiny_prepbn.pth)|
+|deit_s_prepbn|80.2%|deit_s_prepbn.yaml|[deit_small_prepbn.pth](https://github.com/xinghaochen/SLAB/releases/download/ckpts/deit_small_prepbn.pth)|
+|slab_deit_t|74.3%|slab_deit_t.yaml|[slab_deit_tiny.pth](https://github.com/xinghaochen/SLAB/releases/download/ckpts/slab_deit_tiny.pth)|
+|slab_deit_s|80.0%|slab_deit_s.yaml|[slab_deit_small.pth](https://github.com/xinghaochen/SLAB/releases/download/ckpts/slab_deit_small.pth)|
+|pvt_t_prepbn|76.0%|pvt_t_prepbn.yaml|[pvt_tiny_prepbn.pth](https://github.com/xinghaochen/SLAB/releases/download/ckpts/pvt_tiny_prepbn.pth)|
+|pvt_s_prepbn|80.1%|pvt_s_prepbn.yaml|[pvt_small_prepbn.pth](https://github.com/xinghaochen/SLAB/releases/download/ckpts/pvt_small_prepbn.pth)|
+|pvt_m_prepbn|81.7%|pvt_m_prepbn.yaml|[pvt_medium_prepbn.pth](https://github.com/xinghaochen/SLAB/releases/download/ckpts/pvt_medium_prepbn.pth)|
+|slab_pvt_t|76.5%|slab_pvt_t.yaml|[slab_pvt_tiny.pth](https://github.com/xinghaochen/SLAB/releases/download/ckpts/slab_pvt_tiny.pth)|
+|swin_t_prepbn|81.4%|swin_t_prepbn.yaml|[swin_tiny_prepbn.pth](https://github.com/xinghaochen/SLAB/releases/download/ckpts/swin_tiny_prepbn.pth)|
+|slab_swin_t|81.8%|slab_swin_t.yaml|[slab_swin_tiny.pth](https://github.com/xinghaochen/SLAB/releases/download/ckpts/slab_swin_tiny.pth)|
+|slab_swin_s|83.6%|slab_swin_s.yaml|[slab_swin_small.pth](https://github.com/xinghaochen/SLAB/releases/download/ckpts/slab_swin_small.pth)|
+|slab_cswin_t|82.8%|slab_cswin_t.yaml|[slab_cswin_tiny.pth](https://github.com/xinghaochen/SLAB/releases/download/ckpts/slab_cswin_tiny.pth)|
 
 ## 2️⃣ Object Detection
 
