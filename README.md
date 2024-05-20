@@ -67,14 +67,40 @@ python -m torch.distributed.launch --nproc_per_node=8 main.py --cfg <config-path
 
 ### Evaluation
 
-Merge PRepBN for Swin Transformer:
-
+Merge PRepBN for Swin Transformer: For a Swin-T model, we provide the implementation of PRepBN fusion. You can convert the whole model by simply calling merge_bn of the module. This is the recommended way. Examples are shown in eval.py.
 ```shell
-python -m torch.distributed.launch --nproc_per_node=1 eval.py --cfg <config-path> --batch-size 128 --data-path <imagenet-path>  --pretrained <pretrained-path>
+for module in model.modules():
+        if module.__class__.__name__ == 'SwinTransformerBlock':
+            module.merge_bn()
+        elif module.__class__.__name__ == 'PatchMerging':
+            module.merge_bn()
+        elif module.__class__.__name__ == 'PatchEmbed':
+            module.merge_bn()
+    for module in model.modules():
+        if module.__class__.__name__ == 'SwinTransformer':
+            module.merge_bn()
+```
+
+We have also provide an example for the conversion.
+```shell
+python -m torch.distributed.launch --nproc_per_node=1 eval.py --cfg cfgs/swin_t_prepbn.yaml --batch-size 128 --data-path <imagenet-path>  --pretrained <pretrained-path>
 ```
 ### Checkpoints
 
-TBD
+| Model | Top1 | config | checkpoints |
+| :---: | :---: | :---: | :---: | 
+|deit_t_prepbn|73.6%|deit_t_prepbn.yaml|https://github.com/xinghaochen/SLAB/releases/download/ckpts/deit_tiny_prepbn.pth|
+|deit_s_prepbn|80.2%|deit_s_prepbn.yaml|https://github.com/xinghaochen/SLAB/releases/download/ckpts/deit_small_prepbn.pth|
+|slab_deit_t|74.3%|slab_deit_t.yaml|https://github.com/xinghaochen/SLAB/releases/download/ckpts/slab_deit_tiny.pth|
+|slab_deit_s|80.0%|slab_deit_s.yaml|https://github.com/xinghaochen/SLAB/releases/download/ckpts/slab_deit_small.pth|
+|pvt_t_prepbn|76.0%|pvt_t_prepbn.yaml|https://github.com/xinghaochen/SLAB/releases/download/ckpts/pvt_tiny_prepbn.pth|
+|pvt_s_prepbn|80.1%|pvt_s_prepbn.yaml|https://github.com/xinghaochen/SLAB/releases/download/ckpts/pvt_small_prepbn.pth|
+|pvt_m_prepbn|81.7%|pvt_m_prepbn.yaml|https://github.com/xinghaochen/SLAB/releases/download/ckpts/pvt_medium_prepbn.pth|
+|slab_pvt_t|76.5%|slab_pvt_t.yaml|https://github.com/xinghaochen/SLAB/releases/download/ckpts/slab_pvt_tiny.pth|
+|swin_t_prepbn|81.4%|swin_t_prepbn.yaml|https://github.com/xinghaochen/SLAB/releases/download/ckpts/swin_tiny_prepbn.pth|
+|slab_swin_t|81.8%|slab_swin_t.yaml|https://github.com/xinghaochen/SLAB/releases/download/ckpts/slab_swin_tiny.pth|
+|slab_swin_s|83.6%|slab_swin_s.yaml|https://github.com/xinghaochen/SLAB/releases/download/ckpts/slab_swin_small.pth|
+|slab_cswin_t|82.8%|slab_cswin_t.yaml|https://github.com/xinghaochen/SLAB/releases/download/ckpts/slab_cswin_tiny.pth|
 
 ## 2️⃣ Object Detection
 
@@ -97,38 +123,37 @@ Install apex
 
 SLAB-Swin-T
 ```shell
-python -m torch.distributed.launch --nproc_per_node 8 --nnodes <world_size> --node_rank <rank> train.py configs/swin/mask_rcnn_swin_linear_tiny_patch4_window7_mstrain_480-800_adamw_1x_coco.py --work-dir <output_path> --launcher pytorch --init_method <init_method> --cfg-options model.pretrained=<pretrained_backbone_path>
+python -m torch.distributed.launch --nproc_per_node 8 --nnodes <world_size> --node_rank <rank> train.py configs/swin/mask_rcnn_slab_swin_tiny_patch4_window7_mstrain_480-800_adamw_1x_coco.py --work-dir <output_path> --launcher pytorch --init_method <init_method> --cfg-options model.pretrained=<pretrained_backbone_path>
 ```
 
 SLAB-Swin-S
 ```shell
-python -m torch.distributed.launch --nproc_per_node 8 --nnodes <world_size> --node_rank <rank> train.py configs/swin/mask_rcnn_swin_linear_small_patch4_window7_mstrain_480-800_adamw_1x_coco.py --work-dir <output_path> --launcher pytorch --init_method <init_method> --cfg-options model.pretrained=<pretrained_backbone_path>
+python -m torch.distributed.launch --nproc_per_node 8 --nnodes <world_size> --node_rank <rank> train.py configs/swin/mask_rcnn_slab_swin_small_patch4_window7_mstrain_480-800_adamw_1x_coco.py --work-dir <output_path> --launcher pytorch --init_method <init_method> --cfg-options model.pretrained=<pretrained_backbone_path>
 ```
 
 Swin-T-RepBN
 ```shell
-python -m torch.distributed.launch --nproc_per_node 8 --nnodes <world_size> --node_rank <rank> train.py configs/swin/mask_rcnn_swin_tiny_patch4_window7_mstrain_480-800_adamw_1x_coco.py --work-dir <output_path> --launcher pytorch --init_method <init_method> --cfg-options model.pretrained=<pretrained_backbone_path>
+python -m torch.distributed.launch --nproc_per_node 8 --nnodes <world_size> --node_rank <rank> train.py configs/swin/mask_rcnn_swin_tiny_prepbn_patch4_window7_mstrain_480-800_adamw_1x_coco.py --work-dir <output_path> --launcher pytorch --init_method <init_method> --cfg-options model.pretrained=<pretrained_backbone_path>
 ```
 
 Swin-S-RepBN
 ```shell
-python -m torch.distributed.launch --nproc_per_node 8 --nnodes <world_size> --node_rank <rank> train.py configs/swin/mask_rcnn_swin_small_patch4_window7_mstrain_480-800_adamw_1x_coco.py --work-dir <output_path> --launcher pytorch --init_method <init_method> --cfg-options model.pretrained=<pretrained_backbone_path>
+python -m torch.distributed.launch --nproc_per_node 8 --nnodes <world_size> --node_rank <rank> train.py configs/swin/mask_rcnn_swin_small_prepbn_patch4_window7_mstrain_480-800_adamw_1x_coco.py --work-dir <output_path> --launcher pytorch --init_method <init_method> --cfg-options model.pretrained=<pretrained_backbone_path>
 ```
 
 PVT-T-RepBN
 ```shell
-python -m torch.distributed.launch --nproc_per_node 8 --nnodes <world_size> --node_rank <rank> train.py configs/pvt/mask_rcnn_pvt_t_fpn_1x_coco.py --work-dir <output_path> --launcher pytorch --init_method <init_method> --cfg-options model.pretrained=<pretrained_backbone_path>
+python -m torch.distributed.launch --nproc_per_node 8 --nnodes <world_size> --node_rank <rank> train.py configs/pvt/mask_rcnn_pvt_t_prepbn_fpn_1x_coco.py --work-dir <output_path> --launcher pytorch --init_method <init_method> --cfg-options model.pretrained=<pretrained_backbone_path>
 ```
 
 PVT-S-RepBN
 ```shell
-python -m torch.distributed.launch --nproc_per_node 8 --nnodes <world_size> --node_rank <rank> train.py configs/pvt/mask_rcnn_pvt_s_fpn_1x_coco.py --work-dir <output_path> --launcher pytorch --init_method <init_method> --cfg-options model.pretrained=<pretrained_backbone_path>
+python -m torch.distributed.launch --nproc_per_node 8 --nnodes <world_size> --node_rank <rank> train.py configs/pvt/mask_rcnn_pvt_s_prepbn_fpn_1x_coco.py --work-dir <output_path> --launcher pytorch --init_method <init_method> --cfg-options model.pretrained=<pretrained_backbone_path>
 ```
 
 ### Checkpoints
 
-| Model | AP | config | checkpoints |
-| :---: | :---: | :---: | :---: | 
+TBD 
 
 
 ## 3️⃣ Language Task
