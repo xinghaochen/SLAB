@@ -4,9 +4,9 @@
 
 *Jialong Guo\*, Xinghao Chen\*, Yehui Tang, Yunhe Wang (\*Equal Contribution)*
 
-*arXiv 2024* 
+*ICML 2024* 
 
-[[`arXiv`](https://arxiv.org/abs/xx)] [[`BibTeX`](#citation)]
+[[`arXiv`](https://arxiv.org/abs/2405.11582)] [[`BibTeX`](#citation)]
 
 ## 🔥 Updates
 * **2024/05/13**: Pre-trained models and codes of SLAB are released both in [Pytorch](https://github.com/xinghaochen/SLAB) and [Mindspore](https://github.com/mindspore-lab/models/tree/master/research/huawei-noah/SLAB).
@@ -185,10 +185,10 @@ python evaluation.py --ckpt <checkpoint-path>
 ## ✏️ Reference
 If you find SLAB useful in your research or applications, please consider giving a star ⭐ and citing using the following BibTeX:
 ```
-@article{guo2024slab,
+@inproceedings{guo2024slab,
   title={SLAB: Efficient Transformers with Simplified Linear Attention and Progressive Re-parameterized BatchNorm},
   author={Guo, Jialong and Chen, Xinghao and Tang, Yehui  and Wang, Yunhe},
-  journal={arXiv preprint},
+  booktitle={International Conference on Machine Learning},
   year={2024}
 }
 ```
