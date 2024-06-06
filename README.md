@@ -1,6 +1,6 @@
 # SLAB
 
-### **SLAB: Efficient Transformers with Simplified Linear Attention and Progressive Re-parameterized BatchNorm**
+### **SLAB: Efficient Transformers with Simplified Linear Attention and Progressive Re-parameterized Batch Normalization**
 
 *Jialong Guo\*, Xinghao Chen\*, Yehui Tang, Yunhe Wang (\*Equal Contribution)*
 
@@ -186,7 +186,7 @@ python evaluation.py --ckpt <checkpoint-path>
 If you find SLAB useful in your research or applications, please consider giving a star ⭐ and citing using the following BibTeX:
 ```
 @inproceedings{guo2024slab,
-  title={SLAB: Efficient Transformers with Simplified Linear Attention and Progressive Re-parameterized BatchNorm},
+  title={SLAB: Efficient Transformers with Simplified Linear Attention and Progressive Re-parameterized Batch Normalization},
   author={Guo, Jialong and Chen, Xinghao and Tang, Yehui  and Wang, Yunhe},
   booktitle={International Conference on Machine Learning},
   year={2024}
