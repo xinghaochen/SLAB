@@ -70,15 +70,15 @@ python -m torch.distributed.launch --nproc_per_node=8 main.py --cfg <config-path
 Merge PRepBN for Swin Transformer: For a Swin-T model, we provide the implementation of PRepBN fusion. You can convert the whole model by simply calling merge_bn of the module. This is the recommended way. Examples are shown in eval.py.
 ```shell
 for module in model.modules():
-        if module.__class__.__name__ == 'SwinTransformerBlock':
-            module.merge_bn()
-        elif module.__class__.__name__ == 'PatchMerging':
-            module.merge_bn()
-        elif module.__class__.__name__ == 'PatchEmbed':
-            module.merge_bn()
-    for module in model.modules():
-        if module.__class__.__name__ == 'SwinTransformer':
-            module.merge_bn()
+    if module.__class__.__name__ == 'SwinTransformerBlock':
+        module.merge_bn()
+    elif module.__class__.__name__ == 'PatchMerging':
+        module.merge_bn()
+    elif module.__class__.__name__ == 'PatchEmbed':
+        module.merge_bn()
+for module in model.modules():
+    if module.__class__.__name__ == 'SwinTransformer':
+        module.merge_bn()
 ```
 
 We have also provide an example for the conversion.
